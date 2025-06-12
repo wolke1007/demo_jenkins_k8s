@@ -1,3 +1,5 @@
 jenkins-data/*
 !jenkins-data/.gitkeep
 .DS_Store
+
+minikube-kubeconfig.yaml

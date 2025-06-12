@@ -1,0 +1,58 @@
+pipeline {
+  agent {
+    kubernetes {
+      cloud 'K8S'
+      defaultContainer 'python'
+      yaml """
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    some-label: jenkins-agent
+spec:
+  containers:
+    - name: python
+      image: automation-image:latest
+      imagePullPolicy: Never
+      command:
+        - sh
+        - -c
+        - "mkdir -p /home/tmpuser && touch /home/tmpuser/app.log && tail -f /home/tmpuser/app.log"
+      tty: true
+    - name: jnlp
+      image: jenkins/inbound-agent:latest-jdk17
+      args: ['\$(JENKINS_SECRET)', '\$(JENKINS_NAME)']
+      env:
+        - name: JENKINS_URL
+          value: http://host.docker.internal:8080
+        - name: JENKINS_TUNNEL
+          value: host.docker.internal:50000
+"""
+    }
+  }
+  stages {
+    stage('Run Python') {
+      steps {
+        container('python') {
+          sh '''
+            echo "
+import time
+
+for i in range(10):
+    print(f'[{i+1}/10]')
+    time.sleep(1)
+print('This is the end of demo YAYA~')
+" > /home/tmpuser/script.py
+
+            nohup python3 -u /home/tmpuser/script.py >> /home/tmpuser/app.log 2>&1 &
+
+            if [ "$DEBUG_MODE" = "true" ]; then
+              echo "DEBUG_MODE is ON - keeping container alive for debugging..."
+              tail -f /dev/null
+            fi
+          '''
+        }
+      }
+    }
+  }
+}
